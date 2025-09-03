@@ -3,17 +3,19 @@ import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
 import { rememberEnhancer, rememberReducer } from 'redux-remember';
 import goalsReducer from './goals-store';
+import subscriptionReducer from './subscription-store';
 import todoReducer from './todo-store';
 
 export const store = configureStore({
   reducer: rememberReducer({
     todos: todoReducer,
     goals: goalsReducer,
+    subscription: subscriptionReducer,
   }),
 
   enhancers: (getDefaultEnhancers) => {
     return getDefaultEnhancers().concat(
-      rememberEnhancer(AsyncStorage, ['goals'])
+      rememberEnhancer(AsyncStorage, ['goals', 'subscription'])
     );
   },
 });

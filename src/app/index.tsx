@@ -1,9 +1,25 @@
+import type { AnimatedLinearGradientProps } from '@/components/AnimatedLinearGradient';
+import AnimatedLinearGradient from '@/components/AnimatedLinearGradient';
+import FAB from '@/components/FAB';
+import GoalSection from '@/components/Goal/Section';
+import PageTitle from '@/components/PageTitle';
+import { ALPHA_TRANSPARENCY_00, colors } from '@/constants/colors';
+import { topToBottom } from '@/constants/linear-gradient';
+import { groupBy, toDateID } from '@/lib/utils';
+import { useAppDispatch, useAppSelector } from '@/stores/store';
+import {
+  clearPaymentResult,
+  selectPaymentResult,
+} from '@/stores/subscription-store';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { type ReactNode, useMemo } from 'react';
+import { CheckCircle } from 'lucide-react-native';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
+  Animated as RNAnimated,
   Text,
   View,
   type ViewStyle,
@@ -18,26 +34,11 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import type { AnimatedLinearGradientProps } from '@/components/AnimatedLinearGradient';
-import AnimatedLinearGradient from '@/components/AnimatedLinearGradient';
-import FAB from '@/components/FAB';
-import GoalSection from '@/components/Goal/Section';
-import PageTitle from '@/components/PageTitle';
-import { ALPHA_TRANSPARENCY_00, colors } from '@/constants/colors';
-import { topToBottom } from '@/constants/linear-gradient';
-import { groupBy, toDateID } from '@/lib/utils';
-import { useAppSelector } from '@/stores/store';
 
 export default function Home() {
-  // const groupedData = useMemo(
-  //   () =>
-  //     Object.entries(
-  //       groupBy(mockData, ({ dueDate }) => toDateID(new Date(dueDate)))
-  //     ).sort(([dateA], [dateB]) => dateA.localeCompare(dateB)),
-  //   []
-  // );
-
+  const dispatch = useAppDispatch();
   const goals = useAppSelector((state) => state.goals.goals);
+  const paymentResult = useAppSelector(selectPaymentResult);
 
   const groupedData = useMemo(
     () =>
@@ -47,12 +48,81 @@ export default function Home() {
     [goals]
   );
 
+  // Toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const toastOpacity = useState(new RNAnimated.Value(0))[0];
+
+  const showToastMessage = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+
+    // Haptic feedback
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Animate in
+    RNAnimated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+      RNAnimated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowToast(false);
+      });
+    }, 3000);
+  };
+
+  // Handle payment result from PayPal screen
+  useEffect(() => {
+    console.log('paymentResult:', paymentResult);
+    if (paymentResult === 'success') {
+      console.log('Showing success toast');
+      showToastMessage('Subscription successful! Welcome to Goals Pro 🎉');
+      // Clear the payment result after showing the toast
+      setTimeout(() => {
+        dispatch(clearPaymentResult());
+      }, 100);
+    }
+  }, [paymentResult, dispatch]);
+
+  const renderToast = () => {
+    if (!showToast) return null;
+
+    return (
+      <RNAnimated.View
+        className="absolute top-16 right-4 left-4 z-50 flex-row items-center rounded-lg p-4"
+        style={{
+          backgroundColor: '#22C55E',
+          opacity: toastOpacity,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 5,
+        }}
+      >
+        <CheckCircle color="#FFFFFF" size={20} />
+        <Text className="ml-3 flex-1 font-medium text-sm text-white">
+          {toastMessage}
+        </Text>
+      </RNAnimated.View>
+    );
+  };
+
   const { scrollHandler, styles } = useFadeOnScroll();
   const [scrollRef, { titleAnimatedStyle }] = useTranslateGoals();
 
   return (
     <View className="relative flex-1 pt-safe">
       <Header titleStyle={titleAnimatedStyle} />
+      {renderToast()}
 
       <FadeOnScroll endStyle={styles.endStyle} startStyle={styles.startStyle}>
         <Animated.ScrollView

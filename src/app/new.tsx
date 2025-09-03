@@ -1,23 +1,5 @@
-import { useActionSheet } from '@expo/react-native-action-sheet';
-import { usePreventRemove } from '@react-navigation/native';
-import { addDays, isSameDay } from 'date-fns';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRouter } from 'expo-router';
-import { Calendar } from 'lucide-react-native';
-import { memo, useCallback, useMemo, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GoalCard from '@/components/Goal/Card';
+import { MAX_FREE_GOALS } from '@/constants/business';
 import {
   ALPHA_TRANSPARENCY_15,
   ALPHA_TRANSPARENCY_30,
@@ -32,8 +14,33 @@ import { continuousCurve } from '@/constants/styles';
 import { cn } from '@/lib/cn';
 import type { GoalColor, GoalIcon } from '@/lib/goal';
 import { toDateID } from '@/lib/utils';
-import { type AddGoalValues, addGoal } from '@/stores/goals-store';
-import { useAppDispatch } from '@/stores/store';
+import {
+  type AddGoalValues,
+  addGoal,
+  selectGoalCount,
+} from '@/stores/goals-store';
+import { useAppDispatch, useAppSelector } from '@/stores/store';
+import { selectIsSubscribed } from '@/stores/subscription-store';
+import { useActionSheet } from '@expo/react-native-action-sheet';
+import { usePreventRemove } from '@react-navigation/native';
+import { addDays, isSameDay } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRouter } from 'expo-router';
+import { Calendar } from 'lucide-react-native';
+import { memo, useCallback, useMemo, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const INPUT_BAR_Y_PADDING = 12;
 const INPUT_HEIGHT = 40;
@@ -57,6 +64,8 @@ export default function NewGoalPage() {
   } = useForm();
   const { dueDate, iconColorName, iconName, title } = values;
   const dispatch = useAppDispatch();
+  const isSubscribed = useAppSelector(selectIsSubscribed);
+  const goalCount = useAppSelector(selectGoalCount);
 
   const { showActionSheetWithOptions } = useActionSheet();
   usePreventRemove(isDirty, ({ data }) => {
@@ -75,6 +84,18 @@ export default function NewGoalPage() {
   });
 
   const handleSubmit = (formValues: AddGoalValues) => {
+    if (!isSubscribed && goalCount >= MAX_FREE_GOALS) {
+      Alert.alert(
+        'Goal limit reached',
+        `You can create up to ${MAX_FREE_GOALS} goals on the free plan.`,
+        [
+          { text: 'Later', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => router.push('/subscribe') },
+        ]
+      );
+      return;
+    }
+
     dispatch(addGoal(formValues));
     reset();
     router.back();

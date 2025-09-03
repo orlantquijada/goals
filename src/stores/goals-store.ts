@@ -1,9 +1,9 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import * as Crypto from 'expo-crypto';
-import { z } from 'zod/mini';
 import { goalColorKeys } from '@/constants/colors';
 import { goalIconKeys } from '@/constants/icons';
 import type { Goal } from '@/lib/goal';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import * as Crypto from 'expo-crypto';
+import { z } from 'zod/mini';
 
 type GoalState = {
   goals: Goal[];
@@ -57,9 +57,13 @@ const goalsSlice = createSlice({
       state.goals = state.goals.filter((t) => t.id !== action.payload);
     },
   },
+  selectors: {
+    selectGoalCount: (state) => state.goals.length,
+  },
 });
 
 export const { addGoal, removeGoal, completeGoal } = goalsSlice.actions;
+export const { selectGoalCount } = goalsSlice.selectors;
 export default goalsSlice.reducer;
 
 const mockData: Goal[] = [

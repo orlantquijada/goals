@@ -1,1 +1,1 @@
-export const MAX_FREE_GOALS = 20;
+export const MAX_FREE_GOALS = 10;

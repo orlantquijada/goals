@@ -1,6 +1,7 @@
 import { colors } from '@/constants/colors';
 import '../global.css';
 
+import Providers from '@/components/Providers';
 import {
   DMSerifDisplay_400Regular,
   DMSerifDisplay_400Regular_Italic,
@@ -13,9 +14,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
 import { Appearance } from 'react-native';
-import Providers from '@/components/Providers';
+import 'react-native-reanimated';
 
 Appearance.setColorScheme('dark');
 

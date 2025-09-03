@@ -1,22 +1,3 @@
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Gift, X } from 'lucide-react-native';
-import type { ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-  type ViewProps,
-} from 'react-native';
-import Animated, {
-  interpolate,
-  useAnimatedRef,
-  useAnimatedStyle,
-  useScrollViewOffset,
-} from 'react-native-reanimated';
 import PageTitle from '@/components/PageTitle';
 import { MAX_FREE_GOALS } from '@/constants/business';
 import {
@@ -34,21 +15,123 @@ import {
 } from '@/constants/linear-gradient';
 import { continuousCurve } from '@/constants/styles';
 import { Logo as LogoIcon } from '@/icons/logo';
+import { selectGoalCount } from '@/stores/goals-store';
+import { useAppDispatch, useAppSelector } from '@/stores/store';
+import {
+  clearPaymentResult,
+  selectIsSubscribed,
+  selectPaymentResult,
+  unsubscribe,
+} from '@/stores/subscription-store';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Gift, X, XCircle } from 'lucide-react-native';
+import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Pressable,
+  Animated as RNAnimated,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type ViewProps,
+} from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useScrollViewOffset,
+} from 'react-native-reanimated';
 
 const SCROLL_OFFSET_HEIGHT = 250;
 const BLUR_SCROLL_OFFSET = 20;
 
-const placeholderProgressValue = Math.ceil(Math.random() * MAX_FREE_GOALS);
-
 export default function SettingsPage() {
   const [scrollRef, { blurAnimatedStyle, headerAnimatedStyle }] =
     useScrollAnimations();
+  const dispatch = useAppDispatch();
 
   const { height: screenHeight } = useWindowDimensions();
+  const goalCount = useAppSelector(selectGoalCount);
+  const isSubscribed = useAppSelector(selectIsSubscribed);
+  const paymentResult = useAppSelector(selectPaymentResult);
+
+  // Error toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const toastOpacity = useState(new RNAnimated.Value(0))[0];
+
+  const showErrorToast = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+
+    // Haptic feedback
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+    // Animate in
+    RNAnimated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+      RNAnimated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowToast(false);
+      });
+    }, 3000);
+  };
+
+  // Handle payment result from PayPal screen
+  useEffect(() => {
+    if (paymentResult === 'error') {
+      showErrorToast(
+        'Payment failed. Please check your details and try again.'
+      );
+      // Clear the payment result after showing the toast
+      setTimeout(() => {
+        dispatch(clearPaymentResult());
+      }, 100);
+    }
+  }, [paymentResult, dispatch]);
+
+  const renderToast = () => {
+    if (!showToast) return null;
+
+    return (
+      <RNAnimated.View
+        className="absolute top-16 right-4 left-4 z-50 flex-row items-center rounded-lg p-4"
+        style={{
+          backgroundColor: '#EF4444',
+          opacity: toastOpacity,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 5,
+        }}
+      >
+        <XCircle color="#FFFFFF" size={20} />
+        <Text className="ml-3 flex-1 font-medium text-sm text-white">
+          {toastMessage}
+        </Text>
+      </RNAnimated.View>
+    );
+  };
 
   return (
     <View className="relative flex-1">
       <Header blurAnimatedStyle={blurAnimatedStyle} />
+      {renderToast()}
 
       <Animated.ScrollView
         className="relative flex-1 bg-surface-1 px-3"
@@ -83,22 +166,30 @@ export default function SettingsPage() {
             <CTA />
 
             <View
-              className="flex-row items-center gap-2 rounded-[20] border border-outline-1 bg-surface-3 p-4"
+              className="flex-row items-center justify-center gap-2 rounded-[20] border border-outline-1 bg-surface-3 p-4"
               style={continuousCurve}
             >
               {/* progress bar */}
-              <View className="h-2 flex-1 rounded-full bg-surface-4">
-                <View
-                  className="h-full rounded-full bg-on-surface-1"
-                  style={{
-                    width: `${(placeholderProgressValue / MAX_FREE_GOALS) * 100}%`,
-                  }}
-                />
-              </View>
+              {isSubscribed ? (
+                <Text className="text-center font-inter-semibold text-on-surface-1 text-xs">
+                  Access unlimited goals, photo proof, and early access.
+                </Text>
+              ) : (
+                <>
+                  <View className="h-2 flex-1 rounded-full bg-surface-4">
+                    <View
+                      className="h-full rounded-full bg-on-surface-1"
+                      style={{
+                        width: `${(goalCount / MAX_FREE_GOALS) * 100}%`,
+                      }}
+                    />
+                  </View>
 
-              <Text className="font-inter text-on-surface-1 text-sm">
-                {MAX_FREE_GOALS - placeholderProgressValue} Goals Left
-              </Text>
+                  <Text className="font-inter text-on-surface-1 text-sm">
+                    {MAX_FREE_GOALS - goalCount} Goals Left
+                  </Text>
+                </>
+              )}
             </View>
           </View>
         </View>
@@ -151,13 +242,32 @@ function CTABackground({ children }: { children: ReactNode }) {
 
 function CTA() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const isSubscribed = useAppSelector(selectIsSubscribed);
+
+  const handlePress = () => {
+    if (isSubscribed) {
+      Alert.alert(
+        'Cancel subscription?',
+        "We're sad to see you go, but you can always come back.",
+        [
+          { text: 'Keep Pro', style: 'cancel' },
+          {
+            text: 'Cancel',
+            style: 'destructive',
+            onPress: () => dispatch(unsubscribe()),
+          },
+        ]
+      );
+    } else {
+      router.push('/subscribe');
+    }
+  };
 
   return (
     <Pressable
       className="overflow-hidden rounded-2xl transition-all active:scale-[.98]"
-      onPress={() => {
-        router.push('/subscribe');
-      }}
+      onPress={handlePress}
       style={continuousCurve}
     >
       <CTABackground>
@@ -167,7 +277,9 @@ function CTA() {
               Goals Pro
             </Text>
             <Text className="font-inter text-on-surface-1 text-xs">
-              Unlock more goals, sync & more
+              {isSubscribed
+                ? 'Thanks for supporting us!'
+                : 'Unlock more goals, sync & more'}
             </Text>
           </View>
 
@@ -180,9 +292,13 @@ function CTA() {
               intensity={10}
               tint="prominent"
             >
-              <Gift color={colors['on-surface'][1]} size={20} />
+              {isSubscribed ? (
+                <X color={colors['on-surface'][1]} size={20} />
+              ) : (
+                <Gift color={colors['on-surface'][1]} size={20} />
+              )}
               <Text className="font-inter-semibold text-on-surface-1 text-sm">
-                Try Free
+                {isSubscribed ? 'Cancel' : 'Go Pro'}
               </Text>
             </BlurView>
           </View>
