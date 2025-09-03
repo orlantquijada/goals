@@ -1,7 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { type ComponentProps, useEffect, useState } from 'react';
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import {
   ALPHA_TRANSPARENCY_00,
   ALPHA_TRANSPARENCY_10,
@@ -17,6 +13,10 @@ import { transitions } from '@/constants/motion';
 import { continuousCurve } from '@/constants/styles';
 import { cn } from '@/lib/cn';
 import type { Goal } from '@/lib/goal';
+import { LinearGradient } from 'expo-linear-gradient';
+import type { ComponentProps } from 'react';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 export const CARD_HEIGHT = 66;
 
@@ -93,9 +93,6 @@ export default function GoalCard({
           {...(enabledIconAnimation
             ? {
                 entering: FadeInUp.springify()
-                  .stiffness(transitions.snappy.stiffness)
-                  .damping(transitions.snappy.damping),
-                exiting: FadeOutDown.springify()
                   .stiffness(transitions.snappy.stiffness)
                   .damping(transitions.snappy.damping),
               }

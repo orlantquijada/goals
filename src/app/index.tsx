@@ -7,6 +7,7 @@ import { ALPHA_TRANSPARENCY_00, colors } from '@/constants/colors';
 import { topToBottom } from '@/constants/linear-gradient';
 import type { Goal } from '@/lib/goal';
 import { groupBy, toDateID } from '@/lib/utils';
+import { useGetDailyQuoteQuery } from '@/stores/api/quoteApi';
 import {
   selectCompletedGoals,
   selectUncompletedGoals,
@@ -14,6 +15,7 @@ import {
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import {
   clearPaymentResult,
+  selectIsSubscribed,
   selectPaymentResult,
 } from '@/stores/subscription-store';
 import * as Haptics from 'expo-haptics';
@@ -51,6 +53,13 @@ export default function Home() {
   const uncompletedGoals = useAppSelector(selectUncompletedGoals);
   const completedGoals = useAppSelector(selectCompletedGoals);
   const paymentResult = useAppSelector(selectPaymentResult);
+
+  // Fetch daily quote for motivation
+  const {
+    data: dailyQuote,
+    isLoading: quoteLoading,
+    error: quoteError,
+  } = useGetDailyQuoteQuery();
 
   const completedGroupedData = useMemo(
     () => groupGoalsData(completedGoals),
@@ -144,15 +153,33 @@ export default function Home() {
           onScroll={scrollHandler}
           ref={scrollRef}
         >
-          {/* {groupedData.map(([dueDate, goals]) => ( */}
-          {/*   <GoalSection */}
-          {/*     goalSection={{ */}
-          {/*       date: new Date(dueDate), */}
-          {/*       goals: goals || [], */}
-          {/*     }} */}
-          {/*     key={dueDate} */}
-          {/*   /> */}
-          {/* ))} */}
+          {/* Daily Quote - Small and Simple */}
+          <View className="rounded-lg border border-outline-1 bg-surface-2 px-4 py-3">
+            {quoteLoading && (
+              <Text className="text-center font-inter-regular text-on-surface-3 text-xs italic leading-4">
+                Loading inspiration...
+              </Text>
+            )}
+            {quoteError && (
+              <Text className="text-center font-inter-regular text-on-surface-3 text-xs italic leading-4">
+                Failed to load quote
+              </Text>
+            )}
+            {dailyQuote && !quoteLoading && (
+              <Text
+                className="text-center font-inter-regular text-on-surface-1 text-xs italic leading-4"
+                ellipsizeMode="tail"
+                numberOfLines={2}
+              >
+                "{dailyQuote}"
+              </Text>
+            )}
+            {!(dailyQuote || quoteLoading || quoteError) && (
+              <Text className="text-center font-inter-regular text-on-surface-3 text-xs italic leading-4">
+                No quote available
+              </Text>
+            )}
+          </View>
           {uncompletedGoals.length === 0 ? (
             <EmptyState />
           ) : (
@@ -235,14 +262,17 @@ function useTranslateGoals() {
 
 function Header({ titleStyle }: { titleStyle: ViewStyle }) {
   const router = useRouter();
+  const { data: quote } = useGetDailyQuoteQuery();
+  const isSubscribed = useAppSelector(selectIsSubscribed);
 
   return (
     <View className="relative h-14 flex-row items-center justify-between px-4">
       <Animated.View
-        className="z-10"
+        className="z-10 flex-row items-center"
         style={[{ transformOrigin: 'left center' }, titleStyle]}
       >
         <PageTitle>Goals</PageTitle>
+        {isSubscribed && <ProChip />}
       </Animated.View>
       <Pressable
         className="transition-all active:scale-95"
@@ -252,6 +282,32 @@ function Header({ titleStyle }: { titleStyle: ViewStyle }) {
       >
         <Avatar />
       </Pressable>
+    </View>
+  );
+}
+
+// Pro chip component - superscript style
+function ProChip() {
+  return (
+    <View
+      className="ml-1 self-start rounded-full px-1"
+      style={{
+        backgroundColor: colors.primary.DEFAULT, // Solid fill
+        transform: [{ translateY: 4 }], // Align top with Goals text
+        paddingVertical: 1,
+        paddingHorizontal: 4,
+      }}
+    >
+      <Text
+        className="font-inter-semibold"
+        style={{
+          color: 'white',
+          fontSize: 7,
+          lineHeight: 8,
+        }}
+      >
+        PRO
+      </Text>
     </View>
   );
 }

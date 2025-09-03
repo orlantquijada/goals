@@ -42,6 +42,13 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" />
         <Stack.Screen
+          name="[goalId]"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
           name="subscribe"
           options={{
             presentation: 'modal',

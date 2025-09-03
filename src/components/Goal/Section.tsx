@@ -21,6 +21,7 @@ import {
   type NativeActionEvent,
 } from '@react-native-menu/menu';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import { EllipsisVertical } from 'lucide-react-native';
 import { type ReactNode, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -116,7 +117,9 @@ function FocusGoalCardWrapper({
           onLongPress={() => {
             if (isConfirming) {
               setIsConfirming(false);
+              return;
             }
+            setIsConfirming(true);
           }}
           onPress={() => {
             if (isConfirming) {
@@ -239,12 +242,6 @@ const actions: MenuAction[] = [
     imageColor: colors.destructive,
   },
   {
-    id: actionKeys.DETAIL,
-    title: 'Show Details',
-    image: 'chevron.right',
-    imageColor: colors['on-surface'][1],
-  },
-  {
     id: actionKeys.DELETE,
     title: 'Delete Goal',
     attributes: {
@@ -255,13 +252,20 @@ const actions: MenuAction[] = [
   },
 ];
 
-const completedActions: MenuAction[] = actions.filter(
-  (a) => a.id !== actionKeys.PHOTO_PROOF
-);
+const completedActions: MenuAction[] = [
+  {
+    id: actionKeys.DETAIL,
+    title: 'Show Details',
+    image: 'chevron.right',
+    imageColor: colors['on-surface'][1],
+  },
+  ...actions.filter((a) => a.id !== actionKeys.PHOTO_PROOF),
+];
 
 function useMenuActions(goalId: Goal['id']) {
   const { showActionSheetWithOptions } = useActionSheet();
   const dispatch = useAppDispatch();
+  const router = useRouter();
 
   const handleCamera = useCamera((assets) => {
     dispatch(completeGoal({ id: goalId, proof: assets[0].uri }));
@@ -291,6 +295,7 @@ function useMenuActions(goalId: Goal['id']) {
         }
       );
     } else if (nativeEvent.event === actionKeys.DETAIL) {
+      router.push(`/${goalId}`);
     }
   };
 
