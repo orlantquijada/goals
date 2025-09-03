@@ -5,7 +5,12 @@ import GoalSection from '@/components/Goal/Section';
 import PageTitle from '@/components/PageTitle';
 import { ALPHA_TRANSPARENCY_00, colors } from '@/constants/colors';
 import { topToBottom } from '@/constants/linear-gradient';
+import type { Goal } from '@/lib/goal';
 import { groupBy, toDateID } from '@/lib/utils';
+import {
+  selectCompletedGoals,
+  selectUncompletedGoals,
+} from '@/stores/goals-store';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import {
   clearPaymentResult,
@@ -14,7 +19,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { CheckCircle } from 'lucide-react-native';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import React, { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -35,17 +40,25 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+const groupGoalsData = (goals: Goal[]) => {
+  return Object.entries(
+    groupBy(goals, ({ dueDate }) => toDateID(new Date(dueDate)))
+  ).sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+};
+
 export default function Home() {
   const dispatch = useAppDispatch();
-  const goals = useAppSelector((state) => state.goals.goals);
+  const uncompletedGoals = useAppSelector(selectUncompletedGoals);
+  const completedGoals = useAppSelector(selectCompletedGoals);
   const paymentResult = useAppSelector(selectPaymentResult);
 
-  const groupedData = useMemo(
-    () =>
-      Object.entries(
-        groupBy(goals, ({ dueDate }) => toDateID(new Date(dueDate)))
-      ).sort(([dateA], [dateB]) => dateA.localeCompare(dateB)),
-    [goals]
+  const completedGroupedData = useMemo(
+    () => groupGoalsData(completedGoals),
+    [completedGoals]
+  );
+  const uncompletedGroupedData = useMemo(
+    () => groupGoalsData(uncompletedGoals),
+    [uncompletedGoals]
   );
 
   // Toast state
@@ -140,7 +153,23 @@ export default function Home() {
           {/*     key={dueDate} */}
           {/*   /> */}
           {/* ))} */}
-          {groupedData.map(([dueDate, goals]) => (
+          {uncompletedGoals.length === 0 ? (
+            <EmptyState />
+          ) : (
+            uncompletedGroupedData.map(([dueDate, goals]) => (
+              <GoalSection
+                goalSection={{
+                  date: new Date(dueDate),
+                  goals: goals || [],
+                }}
+                key={dueDate}
+              />
+            ))
+          )}
+          <Text className="font-inter-semibold text-on-surface-1 text-sm">
+            Completed
+          </Text>
+          {completedGroupedData.map(([dueDate, goals]) => (
             <GoalSection
               goalSection={{
                 date: new Date(dueDate),
@@ -158,6 +187,21 @@ export default function Home() {
 }
 
 const TITLE_SECTION_HEIGHT = 64;
+
+function EmptyState() {
+  return (
+    <View className="flex-1 items-center justify-center px-8 py-16">
+      <View className="items-center">
+        <Text className="mb-2 text-center font-inter-bold text-2xl text-on-surface-1">
+          No goals yet
+        </Text>
+        <Text className="text-center font-inter-regular text-base text-on-surface-3 leading-6">
+          Create your first goal to get started on your journey
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 function useTranslateGoals() {
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -217,7 +261,7 @@ function Avatar() {
   return (
     <View className="h-8 w-8 items-center justify-center rounded-full border border-outline-1 bg-on-surface-1">
       <Text className="font-inter-semibold text-base text-surface-1 capitalize">
-        M
+        U
       </Text>
     </View>
   );

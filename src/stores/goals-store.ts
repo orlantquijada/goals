@@ -45,12 +45,12 @@ const goalsSlice = createSlice({
     },
     completeGoal: (
       state,
-      action: PayloadAction<NonNullable<Goal['proof']>>
+      action: PayloadAction<Required<Pick<Goal, 'proof' | 'id'>>>
     ) => {
-      const goal = state.goals.find((t) => t.id === action.payload);
+      const goal = state.goals.find((t) => t.id === action.payload.id);
       if (goal && action.payload) {
         goal.completedAt = new Date().toISOString();
-        goal.proof = action.payload;
+        goal.proof = action.payload.proof;
       }
     },
     removeGoal: (state, action: PayloadAction<Goal['id']>) => {
@@ -59,11 +59,15 @@ const goalsSlice = createSlice({
   },
   selectors: {
     selectGoalCount: (state) => state.goals.length,
+    selectUncompletedGoals: (state) =>
+      state.goals.filter((t) => !t.completedAt),
+    selectCompletedGoals: (state) => state.goals.filter((t) => t.completedAt),
   },
 });
 
 export const { addGoal, removeGoal, completeGoal } = goalsSlice.actions;
-export const { selectGoalCount } = goalsSlice.selectors;
+export const { selectGoalCount, selectUncompletedGoals, selectCompletedGoals } =
+  goalsSlice.selectors;
 export default goalsSlice.reducer;
 
 const mockData: Goal[] = [

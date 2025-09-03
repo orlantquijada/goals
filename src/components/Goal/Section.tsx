@@ -1,3 +1,18 @@
+import { ALPHA_TRANSPARENCY_05, colors, goalColors } from '@/constants/colors';
+import {
+  fadeInSpringify,
+  fadeOutSpringify,
+  layoutSpringify,
+  transitions,
+} from '@/constants/motion';
+import { continuousCurve } from '@/constants/styles';
+import { useCamera } from '@/hooks/useCamera';
+import { useLibrary } from '@/hooks/useLibrary';
+import { cn } from '@/lib/cn';
+import type { Goal, GoalColor } from '@/lib/goal';
+import { weekdayFormatDate } from '@/lib/humanize';
+import { completeGoal, removeGoal } from '@/stores/goals-store';
+import { useAppDispatch } from '@/stores/store';
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import {
   type MenuAction,
@@ -10,27 +25,11 @@ import { EllipsisVertical } from 'lucide-react-native';
 import { type ReactNode, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, {
-  FadeIn,
   FadeInRight,
-  FadeOut,
   FadeOutRight,
-  LinearTransition,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { ALPHA_TRANSPARENCY_05, colors, goalColors } from '@/constants/colors';
-import {
-  fadeInSpringify,
-  fadeOutSpringify,
-  layoutSpringify,
-  transitions,
-} from '@/constants/motion';
-import { continuousCurve } from '@/constants/styles';
-import { cn } from '@/lib/cn';
-import type { Goal, GoalColor } from '@/lib/goal';
-import { weekdayFormatDate } from '@/lib/humanize';
-import { removeGoal } from '@/stores/goals-store';
-import { useAppDispatch } from '@/stores/store';
 import GoalCard, { CARD_HEIGHT } from './Card';
 
 type Props = {
@@ -71,6 +70,7 @@ export default function GoalSection({ goalSection }: Props) {
             <FocusGoalCardWrapper
               color={goal.color}
               goalId={goal.id}
+              isCompleted={!!goal.completedAt}
               onConfirm={() => {
                 console.log(goal);
               }}
@@ -89,9 +89,11 @@ function FocusGoalCardWrapper({
   children,
   color,
   goalId,
+  isCompleted,
 }: {
   color: GoalColor;
   goalId: Goal['id'];
+  isCompleted: boolean;
   onConfirm: () => void;
   children: ReactNode;
 }) {
@@ -121,34 +123,49 @@ function FocusGoalCardWrapper({
               onConfirm();
             }
 
-            setIsConfirming((prev) => !prev);
+            setIsConfirming((prev) => (isCompleted ? !prev : true));
           }}
         >
           {children}
-
-          <View
-            className={cn(
-              'absolute inset-0 overflow-hidden rounded-2xl bg-transparent opacity-0 transition-all',
-              isConfirming && 'opacity-100'
-            )}
-            style={continuousCurve}
-          >
-            <BlurView
-              className="flex-1 flex-row items-center justify-center gap-2"
-              intensity={15}
+          {isConfirming && !isCompleted && (
+            <MenuView
+              actions={photoProofActions}
+              onPressAction={handleMenuPress}
+              ref={menuRef}
+              shouldOpenOnLongPress={false}
               style={{
-                backgroundColor: `${iconColor}${ALPHA_TRANSPARENCY_05}`,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
               }}
-              tint="systemThickMaterialDark"
             >
-              <Text
-                className="font-inter-semibold text-sm"
-                style={{ color: iconColor }}
+              <View
+                className={cn(
+                  'absolute inset-0 overflow-hidden rounded-2xl bg-transparent opacity-0 transition-all',
+                  'opacity-100'
+                )}
+                style={continuousCurve}
               >
-                Mark as Completed
-              </Text>
-            </BlurView>
-          </View>
+                <BlurView
+                  className="flex-1 flex-row items-center justify-center gap-2"
+                  intensity={15}
+                  style={{
+                    backgroundColor: `${iconColor}${ALPHA_TRANSPARENCY_05}`,
+                  }}
+                  tint="systemThickMaterialDark"
+                >
+                  <Text
+                    className="font-inter-semibold text-sm"
+                    style={{ color: iconColor }}
+                  >
+                    Mark as Completed
+                  </Text>
+                </BlurView>
+              </View>
+            </MenuView>
+          )}
         </Pressable>
       </Animated.View>
 
@@ -164,7 +181,7 @@ function FocusGoalCardWrapper({
           style={{ transformOrigin: 'right center' }}
         >
           <MenuView
-            actions={actions}
+            actions={isCompleted ? completedActions : actions}
             onPressAction={handleMenuPress}
             ref={menuRef}
             shouldOpenOnLongPress={false}
@@ -183,30 +200,34 @@ function FocusGoalCardWrapper({
 }
 
 const actionKeys = {
+  PHOTO_PROOF: 'photo-proof',
   LIBRARY: 'library',
   CAMERA: 'camera',
   DELETE: 'delete',
   DETAIL: 'detail',
 };
 
+const photoProofActions: MenuAction[] = [
+  {
+    id: actionKeys.LIBRARY,
+    title: 'Choose from Library',
+    image: 'photo.on.rectangle',
+    imageColor: colors['on-surface'][1],
+  },
+  {
+    id: actionKeys.CAMERA,
+    title: 'Take Photo',
+    image: 'camera',
+    imageColor: colors['on-surface'][1],
+  },
+];
+
 const actions: MenuAction[] = [
   {
+    id: actionKeys.PHOTO_PROOF,
     title: 'Add Photo Proof',
     image: 'plus',
-    subactions: [
-      {
-        id: actionKeys.LIBRARY,
-        title: 'Choose from Library',
-        image: 'photo.on.rectangle',
-        imageColor: colors['on-surface'][1],
-      },
-      {
-        id: actionKeys.CAMERA,
-        title: 'Take Photo',
-        image: 'camera',
-        imageColor: colors['on-surface'][1],
-      },
-    ],
+    subactions: photoProofActions,
   },
   {
     id: actionKeys.DELETE,
@@ -234,13 +255,27 @@ const actions: MenuAction[] = [
   },
 ];
 
+const completedActions: MenuAction[] = actions.filter(
+  (a) => a.id !== actionKeys.PHOTO_PROOF
+);
+
 function useMenuActions(goalId: Goal['id']) {
   const { showActionSheetWithOptions } = useActionSheet();
   const dispatch = useAppDispatch();
 
+  const handleCamera = useCamera((assets) => {
+    dispatch(completeGoal({ id: goalId, proof: assets[0].uri }));
+  });
+
+  const handleLibrary = useLibrary((assets) => {
+    dispatch(completeGoal({ id: goalId, proof: assets[0].uri }));
+  });
+
   const handleMenuPress = ({ nativeEvent }: NativeActionEvent) => {
     if (nativeEvent.event === actionKeys.CAMERA) {
+      handleCamera();
     } else if (nativeEvent.event === actionKeys.LIBRARY) {
+      handleLibrary();
     } else if (nativeEvent.event === actionKeys.DELETE) {
       showActionSheetWithOptions(
         {
